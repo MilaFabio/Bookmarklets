@@ -1,182 +1,183 @@
 (() => {
-  const XHR = ('onload' in new XMLHttpRequest()) ? XMLHttpRequest : XDomainRequest;
-  const xhr = new XHR();
-  xhr.open('GET', window.location, true);
-  xhr.send();
-  xhr.onload = () => {
-    let code = xhr.responseText;
-    if (!code) {
-      alert('Не удалось получить код страницы.');
-      return;
-    }
-    const parser = new DOMParser();
-    code = parser.parseFromString(code, 'text/html');
-    const script = code.querySelectorAll('script');
-    function filterNone() {
-      return NodeFilter.FILTER_ACCEPT;
-    }
-    const codeBody = code.getElementsByTagName('body')[0];
-    if (!codeBody) {
-      alert('Не удалось проверить из-за ошибок в HTML коде. Проверьте код страницы на валидность.');
-      return;
-    }
+        const XHR = ('onload' in new XMLHttpRequest()) ? XMLHttpRequest : XDomainRequest;
+        const xhr = new XHR();
+        xhr.open('GET', window.location, true);
+        xhr.send();
+        xhr.onload = () => {
+                let code = xhr.responseText;
+                if (!code) {
+                    alert('Не удалось получить код страницы.');
+                    return;
+                }
+                const parser = new DOMParser();
+                code = parser.parseFromString(code, 'text/html');
+                const script = code.querySelectorAll('script');
 
-    // функция для удаления в строке двойных пробелов
-    function dsr(str) {
-      let returnStr = str;
-      while (returnStr.indexOf('  ') + 1) {
-        returnStr = returnStr.replace(/ {2}/g, ' ');
-      }
-      return returnStr;
-    }
+                function filterNone() {
+                    return NodeFilter.FILTER_ACCEPT;
+                }
+                const codeBody = code.getElementsByTagName('body')[0];
+                if (!codeBody) {
+                    alert('Не удалось проверить из-за ошибок в HTML коде. Проверьте код страницы на валидность.');
+                    return;
+                }
 
-    let bodyText = codeBody.innerText.replace(/[\r\n\t]/gi, ' ');
-    bodyText = dsr(bodyText);
-    const comment = [];
-    const iterator = document.createNodeIterator(code, NodeFilter.SHOW_COMMENT, filterNone, false);
-    let curNode;
-    while ((curNode = iterator.nextNode())) {
-      comment.push(curNode.nodeValue);
-    }
-    let h = codeBody.querySelectorAll('h1, h2, h3, h4, h5, h6');
-    if (!h) h = [];
-    const hd = [];
-    for (let i = 0; i < h.length; i += 1) {
-      hd[i] = [];
-      hd[i].head = Number(h[i].localName[1]);
-      hd[i].text = h[i].textContent;
-    }
+                // функция для удаления в строке двойных пробелов
+                function dsr(str) {
+                    let returnStr = str;
+                    while (returnStr.indexOf('  ') + 1) {
+                        returnStr = returnStr.replace(/ {2}/g, ' ');
+                    }
+                    return returnStr;
+                }
+
+                let bodyText = codeBody.innerText.replace(/[\r\n\t]/gi, ' ');
+                bodyText = dsr(bodyText);
+                const comment = [];
+                const iterator = document.createNodeIterator(code, NodeFilter.SHOW_COMMENT, filterNone, false);
+                let curNode;
+                while ((curNode = iterator.nextNode())) {
+                    comment.push(curNode.nodeValue);
+                }
+                let h = codeBody.querySelectorAll('h1, h2, h3, h4, h5, h6');
+                if (!h) h = [];
+                const hd = [];
+                for (let i = 0; i < h.length; i += 1) {
+                    hd[i] = [];
+                    hd[i].head = Number(h[i].localName[1]);
+                    hd[i].text = h[i].textContent;
+                }
 
 
-    const tempHeaders = [];
-    let hErr = false;
-    for (let i = 0; i < hd.length; i += 1) {
-      if (i === 0) {
-        if (hd[0].head !== 1) {
-          hd[0].error = 'Первый заголовок не h1';
-          tempHeaders[hd[0].head] = true;
-          hErr = true;
-          continue;
-        }
-      }
+                const tempHeaders = [];
+                let hErr = false;
+                for (let i = 0; i < hd.length; i += 1) {
+                    if (i === 0) {
+                        if (hd[0].head !== 1) {
+                            hd[0].error = 'Первый заголовок не h1';
+                            tempHeaders[hd[0].head] = true;
+                            hErr = true;
+                            continue;
+                        }
+                    }
 
-      if (hd[i].head === 1 && tempHeaders[1]) {
-        hd[i].error += 'Более одного заголовка H1. ';
-      }
+                    if (hd[i].head === 1 && tempHeaders[1]) {
+                        hd[i].error += 'Более одного заголовка H1. ';
+                    }
 
-      if (hd[i].head === 1 && (tempHeaders[2] || tempHeaders[3] || tempHeaders[4] || tempHeaders[5] || tempHeaders[6])) {
-        hd[i].error += 'Не первый заголовок в иерархии.';
-      }
+                    if (hd[i].head === 1 && (tempHeaders[2] || tempHeaders[3] || tempHeaders[4] || tempHeaders[5] || tempHeaders[6])) {
+                        hd[i].error += 'Не первый заголовок в иерархии.';
+                    }
 
-      if (hd[i].head !== 1 && !tempHeaders[hd[i].head - 1]) {
-        hd[i].error += 'Перед заголовком не было заголовка уровнем выше. ';
-      }
+                    if (hd[i].head !== 1 && !tempHeaders[hd[i].head - 1]) {
+                        hd[i].error += 'Перед заголовком не было заголовка уровнем выше. ';
+                    }
 
-      if (hd[i - 1] && (hd[i].head - hd[i - 1].head > 1)) {
-        hd[i].error += 'Нарушает иерархию заголовков. ';
-      }
+                    if (hd[i - 1] && (hd[i].head - hd[i - 1].head > 1)) {
+                        hd[i].error += 'Нарушает иерархию заголовков. ';
+                    }
 
-      if (hd[i].text.replace(/ |\s|&nbsp;/gi, '') === '') {
-        hd[i].error += 'Пустой заголовок.';
-      }
-      tempHeaders[hd[i].head] = true;
-      if (hd[i].error) {
-        hd[i].error = hd[i].error.replace('undefined', '');
-        hErr = true;
-      }
-    }
+                    if (hd[i].text.replace(/ |\s|&nbsp;/gi, '') === '') {
+                        hd[i].error += 'Пустой заголовок.';
+                    }
+                    tempHeaders[hd[i].head] = true;
+                    if (hd[i].error) {
+                        hd[i].error = hd[i].error.replace('undefined', '');
+                        hErr = true;
+                    }
+                }
 
-    let alertStr = '';
-    let openLinks = '';
-    let descr = code.querySelector('meta[name=description]') || document.querySelector('meta[name=description]');
-    let keyw = code.querySelector('meta[name=keywords]') || document.querySelector('meta[name=keywords]');
-    const meta = code.querySelectorAll('meta') || document.querySelectorAll('meta');
-    const bcnt = codeBody.querySelectorAll('b');
-    const strong = codeBody.querySelectorAll('strong');
-    const em = codeBody.querySelectorAll('em');
-    const links = codeBody.querySelectorAll('a');
-    let externalLinks = '';
-    let externalLinksCnt = 0;
-    let internalLinks = '';
-    let internalLinksCnt = 0;
-    const img = codeBody.querySelectorAll('img');
-    const titleAttr = codeBody.querySelectorAll('body [title]');
-    let altTitle = '';
-    let altCnt = 0;
-    let altStrCnt = 0;
-    let h16Str = '';
-    let canonical = code.querySelector('link[rel=canonical]') || document.querySelector('head link[rel=canonical]');
-    let rnext = code.querySelector('link[rel=next]') || document.querySelector('link[rel=next]');
-    let rprev = code.querySelector('link[rel=prev]') || document.querySelector('link[rel=prev]');
-    const title = code.querySelector('title') || document.querySelector('title');
-    let codeScriptsDel = '';
-    // на https://paybis.com/ не работает title и description
-    // цикл виснет. Нужно не удалять src и href
+                let alertStr = '';
+                let openLinks = '';
+                let descr = code.querySelector('meta[name=description]') || document.querySelector('meta[name=description]');
+                let keyw = code.querySelector('meta[name=keywords]') || document.querySelector('meta[name=keywords]');
+                const meta = code.querySelectorAll('meta') || document.querySelectorAll('meta');
+                const bcnt = codeBody.querySelectorAll('b');
+                const strong = codeBody.querySelectorAll('strong');
+                const em = codeBody.querySelectorAll('em');
+                const links = codeBody.querySelectorAll('a');
+                let externalLinks = '';
+                let externalLinksCnt = 0;
+                let internalLinks = '';
+                let internalLinksCnt = 0;
+                const img = codeBody.querySelectorAll('img');
+                const titleAttr = codeBody.querySelectorAll('body [title]');
+                let altTitle = '';
+                let altCnt = 0;
+                let altStrCnt = 0;
+                let h16Str = '';
+                let canonical = code.querySelector('link[rel=canonical]') || document.querySelector('head link[rel=canonical]');
+                let rnext = code.querySelector('link[rel=next]') || document.querySelector('link[rel=next]');
+                let rprev = code.querySelector('link[rel=prev]') || document.querySelector('link[rel=prev]');
+                const title = code.querySelector('title') || document.querySelector('title');
+                let codeScriptsDel = '';
+                // на https://paybis.com/ не работает title и description
+                // цикл виснет. Нужно не удалять src и href
 
-    codeScriptsDel = code.getElementsByTagName('body')[0].cloneNode(true);
+                codeScriptsDel = code.getElementsByTagName('body')[0].cloneNode(true);
 
-    function codeClear(element) {
-      const allTags = element.children;
-      const allTagsLen = allTags.length;
-      for (let i = 0; i < allTagsLen; i += 1) {
-        if (allTags[i].nodeType !== 1) continue;
-        if (['script', 'style', 'noscript'].indexOf(allTags[i].nodeName.toLowerCase()) !== -1) {
-          allTags[i].innerHTML = '';
-          continue;
-        }
-        const tagAttr = allTags[i].attributes;
-        const attLent = tagAttr.length;
-        if (attLent > 0) {
-          for (let a = 0; a < attLent; a++) {
-            // debugger;
-            if (!tagAttr[a]) break;
-            if (tagAttr[a].name === 'src' || tagAttr[a].name === 'href') continue;
-            allTags[i].removeAttribute(tagAttr[a].name);
-            a--;
-          }
-        }
-        if (allTags[i].childNodes.length > 0) {
-          allTags[i] = codeClear(allTags[i]);
-        }
-        element[i] = allTags[i];
-        continue;
-      }
-      return element;
-    }
-    codeScriptsDel = codeClear(codeScriptsDel);
+                function codeClear(element) {
+                    const allTags = element.children;
+                    const allTagsLen = allTags.length;
+                    for (let i = 0; i < allTagsLen; i += 1) {
+                        if (allTags[i].nodeType !== 1) continue;
+                        if (['script', 'style', 'noscript'].indexOf(allTags[i].nodeName.toLowerCase()) !== -1) {
+                            allTags[i].innerHTML = '';
+                            continue;
+                        }
+                        const tagAttr = allTags[i].attributes;
+                        const attLent = tagAttr.length;
+                        if (attLent > 0) {
+                            for (let a = 0; a < attLent; a++) {
+                                // debugger;
+                                if (!tagAttr[a]) break;
+                                if (tagAttr[a].name === 'src' || tagAttr[a].name === 'href') continue;
+                                allTags[i].removeAttribute(tagAttr[a].name);
+                                a--;
+                            }
+                        }
+                        if (allTags[i].childNodes.length > 0) {
+                            allTags[i] = codeClear(allTags[i]);
+                        }
+                        element[i] = allTags[i];
+                        continue;
+                    }
+                    return element;
+                }
+                codeScriptsDel = codeClear(codeScriptsDel);
 
-    for (let i = 0; i < meta.length; i += 1) {
-      if (meta[i].name.toLowerCase() === 'description') descr = meta[i];
-      if (meta[i].name.toLowerCase() === 'keywords') keyw = meta[i];
-    }
+                for (let i = 0; i < meta.length; i += 1) {
+                    if (meta[i].name.toLowerCase() === 'description') descr = meta[i];
+                    if (meta[i].name.toLowerCase() === 'keywords') keyw = meta[i];
+                }
 
-    if (title) {
-      alertStr += `<p><b class="link_sim"  title="Скопировать title в буфер обмена">Title</b> <span ${(title.textContent.length < 30 || title.textContent.length > 150) ? "class='red'" : ''}>(${title.textContent.length}): </span>${title.textContent}</p>`;
-    } else {
-      alertStr += '<p><b class="red">Title: отсутствует</b></p>';
-    }
+                if (title) {
+                    alertStr += `<p><b class="link_sim"  title="Скопировать title в буфер обмена">Title</b> <span ${(title.textContent.length < 30 || title.textContent.length > 150) ? "class='red'" : ''}>(${title.textContent.length}): </span>${title.textContent}</p>`;
+                } else {
+                    alertStr += '<p><b class="red">Title: отсутствует</b></p>';
+                }
 
-    if (descr) {
-      descr = descr.content;
-      if (descr) {
-        alertStr += `<p><b class="link_sim" title="Скопировать description в буфер обмена">Description</b> <span ${(descr.length < 50 || descr.length > 250) ? "class='red'" : ''}>(${descr.length}): </span>${descr}</p>`;
-      } else {
-        alertStr += '<p><b class="red">Description: отсутствует</b></p>';
-      }
-    } else {
-      alertStr += '<p><b class="red">Description: отсутствует</b></p>';
-    }
+                if (descr) {
+                    descr = descr.content;
+                    if (descr) {
+                        alertStr += `<p><b class="link_sim" title="Скопировать description в буфер обмена">Description</b> <span ${(descr.length < 50 || descr.length > 250) ? "class='red'" : ''}>(${descr.length}): </span>${descr}</p>`;
+                    } else {
+                        alertStr += '<p><b class="red">Description: отсутствует</b></p>';
+                    }
+                } else {
+                    alertStr += '<p><b class="red">Description: отсутствует</b></p>';
+                }
 
-    if (keyw) {
-      keyw = keyw.content;
-      if (keyw) {
-        alertStr += `<p><b>Keywords</b> (${keyw.length}): ${keyw}</p>`;
-      }
-    }
+                if (keyw) {
+                    keyw = keyw.content;
+                    if (keyw) {
+                        alertStr += `<p><b>Keywords</b> (${keyw.length}): ${keyw}</p>`;
+                    }
+                }
 
-    for (let i = 0; i < meta.length; i += 1) {
-      if (meta[i].name.toLowerCase() === 'robots' || meta[i].name.toLowerCase() === 'yandex' || meta[i].name.toLowerCase() === 'googlebot') {
-        alertStr += `<p><b>meta ${meta[i].name}:</b> ${(meta[i].content.indexOf('noindex') + 1 || meta[i].content.indexOf('nofollow') + 1) ? `<b class='red'>${meta[i].content}</b>` : meta[i].content}</p>`;
+                for (let i = 0; i < meta.length; i += 1) {
+                    if (meta[i].name.toLowerCase() === 'robots' || meta[i].name.toLowerCase() === 'yandex' || meta[i].name.toLowerCase() === 'googlebot') {
+                        alertStr += `<p><b>meta ${meta[i].name}:</b> ${(meta[i].content.indexOf('noindex') + 1 || meta[i].content.indexOf('nofollow') + 1) ? `<b class='red'>${meta[i].content}</b>` : meta[i].content}</p>`;
       }
     }
 
